@@ -2,19 +2,20 @@
 #define UNIONFIND_H
 
 #include <vector>
-
 using namespace std;
 
-// simple union-find (disjoint set) with path compression and union by rank
-class UnionFind {
+// disjoint set (union-find) class
+class UnionFind
+{
 private:
-    vector<int> parent, rankv;
+    vector<int> parent;
+    vector<int> rankv;
 
 public:
     UnionFind(int n);
-    int find(int x);
-    void unite(int a, int b);
-    bool same(int a, int b);
+    int find(int x);          // find root
+    void unite(int a, int b); // merge sets
+    bool same(int a, int b);  // check if in same set
 };
 
-#endif
+#endif // UNIONFIND_H

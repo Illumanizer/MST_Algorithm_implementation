@@ -5,11 +5,9 @@
 #include "unionfind.h"
 #include <vector>
 #include <utility>
-
 using namespace std;
 
-// Kruskal's algorithm (free function).
-// Returns pair(mstEdges, totalWeight).
-pair<vector<Edge>, long long> kruskal_mst(const Graph &G);
+// function to compute MST using Kruskal algorithm
+pair<vector<Edge>, int> kruskal_mst(const Graph &G);
 
 #endif // KRUSKAL_H

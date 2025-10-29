@@ -1,76 +1,26 @@
+// ===== File: fibheap.cpp =====
 #include "fibheap.h"
-#include <cmath>
 #include <vector>
-#include <algorithm>
-#include <queue>
-#include <cstring>
-
+#include <cmath>
+#include <cstdlib>
+#include <climits>
 using namespace std;
 
-FibHeap::FibHeap(int maxVertices)
-    : nodesCount(0), minptr(nullptr), nodesById(maxVertices + 1, nullptr) {}
-
-FibHeap::~FibHeap()
+// allocate a new node
+static fh_node *create_node(int vertex, int key)
 {
-    clear();
+    fh_node *x = new fh_node(vertex, key);
+    return x;
 }
 
-bool FibHeap::empty() const
-{
-    return minptr == nullptr;
-}
-
-ll FibHeap::min_key() const
-{
-    return minptr ? minptr->key : numeric_limits<ll>::max();
-}
-
-void FibHeap::insert(int vertex, ll key)
-{
-    // if vertex id outside current nodesById, resize
-    if (vertex >= (int)nodesById.size())
-        nodesById.resize(vertex + 1, nullptr);
-
-    // if an entry for this vertex already exists, treat as decrease_key instead
-    if (nodesById[vertex])
-    {
-        if (key < nodesById[vertex]->key)
-            decrease_key(vertex, key);
-        return;
-    }
-
-    FibNode *x = new FibNode(vertex, key);
-    // insert into root list
-    if (minptr == nullptr)
-    {
-        minptr = x;
-    }
-    else
-    {
-        // insert to right of min
-        x->right = minptr->right;
-        x->left = minptr;
-        minptr->right->left = x;
-        minptr->right = x;
-        if (x->key < minptr->key)
-            minptr = x;
-    }
-    nodesById[vertex] = x;
-    nodesCount++;
-}
-
-bool FibHeap::contains(int vertex) const
-{
-    return vertex < (int)nodesById.size() && nodesById[vertex] != nullptr;
-}
-
-void FibHeap::removeFromList(FibNode *x)
+// remove x from its circular list and isolate it
+static void remove_from_list(fh_node *x)
 {
     if (!x)
         return;
     if (x->left == x && x->right == x)
     {
-        // single node — isolate it
+        // single node, leave isolated
     }
     else
     {
@@ -80,61 +30,62 @@ void FibHeap::removeFromList(FibNode *x)
     x->left = x->right = x;
 }
 
-void FibHeap::link(FibNode *parentNode, FibNode *childNode)
+// link child under parent
+static void link_nodes(fibheap_c *H, fh_node *parent, fh_node *child)
 {
-    // remove childNode from its list
-    removeFromList(childNode);
-
-    // make childNode a child of parentNode
-    childNode->parent = parentNode;
-    childNode->mark = false;
-
-    if (parentNode->child == nullptr)
+    // detach child from root list
+    remove_from_list(child);
+    child->parent = parent;
+    child->mark = false;
+    if (!parent->child)
     {
-        parentNode->child = childNode;
-        childNode->left = childNode->right = childNode;
+        parent->child = child;
+        child->left = child->right = child;
     }
     else
     {
-        // insert into parent's child list
-        childNode->right = parentNode->child->right;
-        childNode->left = parentNode->child;
-        parentNode->child->right->left = childNode;
-        parentNode->child->right = childNode;
+        child->right = parent->child->right;
+        child->left = parent->child;
+        parent->child->right->left = child;
+        parent->child->right = child;
     }
-    parentNode->degree++;
+    parent->degree++;
 }
 
-void FibHeap::consolidate()
+// consolidate root list after extract
+static void consolidate(fibheap_c *H)
 {
-    if (!minptr)
+    if (!H->minptr)
         return;
-    int maxDeg = (int)(log2(max(1, nodesCount))) + 2;
-    vector<FibNode *> A(maxDeg, nullptr);
+    int maxDeg = (int)(log2(max(1, H->nodes))) + 2;
+    vector<fh_node *> A(maxDeg, nullptr);
 
-    // collect root list into vector to iterate safely
-    vector<FibNode *> roots;
-    FibNode *start = minptr;
-    FibNode *cur = start;
+    // take snapshot of root list
+    vector<fh_node *> roots;
+    fh_node *start = H->minptr;
+    fh_node *cur = start;
     do
     {
         roots.push_back(cur);
         cur = cur->right;
     } while (cur != start);
 
-    for (FibNode *w : roots)
+    for (fh_node *w : roots)
     {
-        FibNode *x = w;
+        fh_node *x = w;
         int d = x->degree;
         while (d >= (int)A.size())
             A.resize(A.size() * 2 + 1, nullptr);
         while (A[d] != nullptr)
         {
-            FibNode *y = A[d];
+            fh_node *y = A[d];
             if (y->key < x->key)
-                swap(x, y);
-            // y becomes child of x
-            link(x, y);
+            {
+                fh_node *tmp = x;
+                x = y;
+                y = tmp;
+            }
+            link_nodes(H, x, y);
             A[d] = nullptr;
             d++;
             while (d >= (int)A.size())
@@ -144,225 +95,244 @@ void FibHeap::consolidate()
     }
 
     // rebuild root list and find new min
-    minptr = nullptr;
-    for (FibNode *node : A)
+    H->minptr = nullptr;
+    for (fh_node *n : A)
     {
-        if (node)
+        if (!n)
+            continue;
+        n->left = n->right = n;
+        n->parent = nullptr;
+        if (!H->minptr)
+            H->minptr = n;
+        else
         {
-            // isolate node
-            node->left = node->right = node;
-            node->parent = nullptr;
-            if (minptr == nullptr)
-                minptr = node;
-            else
-            {
-                // insert node into root list
-                node->right = minptr->right;
-                node->left = minptr;
-                minptr->right->left = node;
-                minptr->right = node;
-                if (node->key < minptr->key)
-                    minptr = node;
-            }
+            n->right = H->minptr->right;
+            n->left = H->minptr;
+            H->minptr->right->left = n;
+            H->minptr->right = n;
+            if (n->key < H->minptr->key)
+                H->minptr = n;
         }
     }
 }
 
-void FibHeap::moveChildrenToRootList(FibNode *z)
+// move children of z to root list
+static void move_children_to_root(fibheap_c *H, fh_node *z)
 {
     if (!z || !z->child)
         return;
-    // snapshot child list
-    vector<FibNode *> children;
-    FibNode *cstart = z->child;
-    FibNode *ccur = cstart;
+    vector<fh_node *> children;
+    fh_node *cstart = z->child;
+    fh_node *cc = cstart;
     do
     {
-        children.push_back(ccur);
-        ccur = ccur->right;
-    } while (ccur != cstart);
+        children.push_back(cc);
+        cc = cc->right;
+    } while (cc != cstart);
 
-    for (FibNode *ch : children)
+    for (fh_node *ch : children)
     {
-        // detach from child list
-        removeFromList(ch);
+        remove_from_list(ch);
         ch->parent = nullptr;
         ch->mark = false;
-
-        // add to root list
-        if (minptr == nullptr)
+        if (!H->minptr)
         {
             ch->left = ch->right = ch;
-            minptr = ch;
+            H->minptr = ch;
         }
         else
         {
-            ch->right = minptr->right;
-            ch->left = minptr;
-            minptr->right->left = ch;
-            minptr->right = ch;
-            if (ch->key < minptr->key)
-                minptr = ch;
+            ch->right = H->minptr->right;
+            ch->left = H->minptr;
+            H->minptr->right->left = ch;
+            H->minptr->right = ch;
+            if (ch->key < H->minptr->key)
+                H->minptr = ch;
         }
     }
     z->child = nullptr;
 }
 
-int FibHeap::extract_min()
+// create heap
+fibheap_c *fh_create()
 {
-    if (!minptr)
-        return -1;
-    FibNode *z = minptr;
+    fibheap_c *H = new fibheap_c();
+    H->nodes = 0;
+    H->minptr = nullptr;
+    return H;
+}
 
-    // move children of z to root list
-    moveChildrenToRootList(z);
+// destroy heap and free nodes
+void fh_destroy(fibheap_c *H)
+{
+    if (!H)
+        return;
+    if (H->minptr)
+    {
+        vector<fh_node *> stack;
+        vector<fh_node *> all;
+        fh_node *start = H->minptr;
+        fh_node *cur = start;
+        do
+        {
+            stack.push_back(cur);
+            cur = cur->right;
+        } while (cur != start);
+
+        while (!stack.empty())
+        {
+            fh_node *n = stack.back();
+            stack.pop_back();
+            if (!n)
+                continue;
+            if (n->degree == -1)
+                continue; // visited marker
+            n->degree = -1;
+            all.push_back(n);
+            if (n->child)
+            {
+                fh_node *cstart = n->child;
+                fh_node *cc = cstart;
+                do
+                {
+                    stack.push_back(cc);
+                    cc = cc->right;
+                } while (cc != cstart);
+            }
+            if (n->right && n->right != n)
+                stack.push_back(n->right);
+        }
+        for (fh_node *p : all)
+            delete p;
+    }
+    delete H;
+}
+
+// insert and return node pointer
+fh_node *fh_insert(fibheap_c *H, int vertex, int key)
+{
+    if (!H)
+        return nullptr;
+    fh_node *x = create_node(vertex, key);
+    if (!H->minptr)
+    {
+        H->minptr = x;
+    }
+    else
+    {
+        x->right = H->minptr->right;
+        x->left = H->minptr;
+        H->minptr->right->left = x;
+        H->minptr->right = x;
+        if (x->key < H->minptr->key)
+            H->minptr = x;
+    }
+    H->nodes++;
+    return x;
+}
+
+// extract min node and return it (caller should delete)
+fh_node *fh_extract_min_node(fibheap_c *H)
+{
+    if (!H || !H->minptr)
+        return nullptr;
+    fh_node *z = H->minptr;
+    move_children_to_root(H, z);
 
     // remove z from root list
     if (z->left == z && z->right == z)
     {
-        minptr = nullptr;
+        H->minptr = nullptr;
     }
     else
     {
         z->left->right = z->right;
         z->right->left = z->left;
-        minptr = z->right; // temporary
+        H->minptr = z->right; // temporary
     }
 
-    // remove mapping
-    if (z->vertex >= 0 && z->vertex < (int)nodesById.size())
-        nodesById[z->vertex] = nullptr;
-
-    int retVertex = z->vertex;
-    // free z
-    delete z;
-    nodesCount--;
-
-    if (minptr)
-        consolidate();
-    return retVertex;
+    // isolate z
+    z->left = z->right = z;
+    H->nodes--;
+    if (H->minptr)
+        consolidate(H);
+    return z;
 }
 
-void FibHeap::decrease_key(int vertex, ll newKey)
+// cut x from parent and move to root list
+static void cut_node_to_root(fibheap_c *H, fh_node *x, fh_node *par)
 {
-    if (vertex >= (int)nodesById.size() || nodesById[vertex] == nullptr)
+    if (!x || !par)
         return;
-    FibNode *x = nodesById[vertex];
+    if (x->right == x)
+    {
+        par->child = nullptr;
+    }
+    else
+    {
+        if (par->child == x)
+            par->child = x->right;
+        x->right->left = x->left;
+        x->left->right = x->right;
+    }
+    par->degree--;
+    x->parent = nullptr;
+    x->mark = false;
+
+    // add x to root list
+    if (!H->minptr)
+    {
+        x->left = x->right = x;
+        H->minptr = x;
+    }
+    else
+    {
+        x->right = H->minptr->right;
+        x->left = H->minptr;
+        H->minptr->right->left = x;
+        H->minptr->right = x;
+        if (x->key < H->minptr->key)
+            H->minptr = x;
+    }
+}
+
+// cascading cut
+static void cascading_cut(fibheap_c *H, fh_node *y)
+{
+    fh_node *z = y->parent;
+    if (!z)
+        return;
+    if (!y->mark)
+    {
+        y->mark = true;
+    }
+    else
+    {
+        cut_node_to_root(H, y, z);
+        cascading_cut(H, z);
+    }
+}
+
+// decrease key of node x
+void fh_decrease_key(fibheap_c *H, fh_node *x, int newKey)
+{
+    if (!H || !x)
+        return;
     if (newKey >= x->key)
         return;
     x->key = newKey;
-    FibNode *y = x->parent;
+    fh_node *y = x->parent;
     if (y && x->key < y->key)
     {
-        // cut x from parent and add to root list
-        // remove x from parent's child list
-        removeFromList(x);
-        if (y->child == x)
-        {
-            // if x was the only child, y->child becomes null or another child
-            if (x->right != x)
-                y->child = x->right;
-            else
-                y->child = nullptr;
-        }
-        y->degree--;
-        x->parent = nullptr;
-        x->mark = false;
-
-        // insert x into root list
-        x->right = minptr->right;
-        x->left = minptr;
-        minptr->right->left = x;
-        minptr->right = x;
+        cut_node_to_root(H, x, y);
+        cascading_cut(H, y);
     }
-    // cascading cut is omitted here for brevity (but can be implemented)
-    // The following implements a simple cascading cut:
-    while (y)
-    {
-        if (!y->mark)
-        {
-            y->mark = true;
-            break;
-        }
-        else
-        {
-            FibNode *py = y->parent;
-            // cut y
-            removeFromList(y);
-            if (py && py->child == y)
-            {
-                if (y->right != y)
-                    py->child = y->right;
-                else
-                    py->child = nullptr;
-            }
-            if (py)
-                py->degree--;
-            y->parent = nullptr;
-            y->mark = false;
-            // insert y to root list
-            y->right = minptr->right;
-            y->left = minptr;
-            minptr->right->left = y;
-            minptr->right = y;
-            y = py;
-        }
-    }
-
-    if (minptr == nullptr || x->key < minptr->key)
-        minptr = x;
+    if (!H->minptr || x->key < H->minptr->key)
+        H->minptr = x;
 }
 
-void FibHeap::freeAllNodes()
+// check empty
+bool fh_empty(const fibheap_c *H)
 {
-    if (!minptr)
-        return;
-    // collect all nodes with DFS-like traversal from root list
-    vector<FibNode *> stack;
-    vector<FibNode *> all;
-    FibNode *start = minptr;
-    FibNode *cur = start;
-    do
-    {
-        stack.push_back(cur);
-        cur = cur->right;
-    } while (cur != start);
-
-    while (!stack.empty())
-    {
-        FibNode *node = stack.back();
-        stack.pop_back();
-        if (!node)
-            continue;
-        if (node->degree == -1)
-            continue; // visited marker
-        node->degree = -1;
-        all.push_back(node);
-        // push children
-        if (node->child)
-        {
-            FibNode *cstart = node->child;
-            FibNode *ccur = cstart;
-            do
-            {
-                stack.push_back(ccur);
-                ccur = ccur->right;
-            } while (ccur != cstart);
-        }
-        // push right sibling
-        if (node->right && node->right != node)
-            stack.push_back(node->right);
-    }
-
-    for (FibNode *n : all)
-        delete n;
-    minptr = nullptr;
-}
-
-void FibHeap::clear()
-{
-    // free memory and clear nodesById
-    freeAllNodes();
-    nodesById.assign(nodesById.size(), nullptr);
-    nodesCount = 0;
+    return !H || H->minptr == nullptr;
 }

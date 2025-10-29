@@ -1,51 +1,40 @@
 #ifndef FIBHEAP_H
 #define FIBHEAP_H
 
-#include <vector>
-#include <limits>
-#include <functional>
+#include <climits>
 
-using ll = long long;
-
-using namespace std;
-
-struct FibNode
+struct fh_node
 {
-    int vertex; // associated vertex id
-    ll key;     // priority/key
-    int degree;
-    bool mark;
-    FibNode *left, *right, *parent, *child;
-    FibNode(int v = -1, ll k = numeric_limits<ll>::max())
-        : vertex(v), key(k), degree(0), mark(false),
-          left(this), right(this), parent(nullptr), child(nullptr) {}
+    int vertex;                             // vertex id stored in this node
+    int key;                                // priority key
+    int degree;                             // number of children
+    bool mark;                              // marked flag for cascading cuts
+    fh_node *left, *right, *parent, *child; // pointers for circular lists
+    fh_node(int v = -1, int k = INT_MAX)
+        : vertex(v), key(k), degree(0), mark(false), left(this), right(this), parent(nullptr), child(nullptr) {}
 };
 
-class FibHeap
+struct fibheap_c
 {
-public:
-    explicit FibHeap(int maxVertices = 0); // optionally give number of vertices
-    ~FibHeap();                            // destructor
-
-    void insert(int vertex, ll key);
-    bool contains(int vertex) const;
-    void decrease_key(int vertex, ll newKey);
-    int extract_min();  // returns vertex id (or -1 if empty)
-    ll min_key() const; // returns key of min (LLONG_MAX if empty)
-    bool empty() const;
-    void clear(); // destroy all nodes
-
-private:
-    int nodesCount;
-    FibNode *minptr;
-    vector<FibNode *> nodesById; // index by vertex id (size = maxVertices+1), null if absent
-
-    // internal helpers
-    static void removeFromList(FibNode *x);
-    static void link(FibNode *parentNode, FibNode *childNode);
-    void consolidate();
-    void moveChildrenToRootList(FibNode *z);
-    void freeAllNodes();
+    int nodes;       // number of nodes in heap
+    fh_node *minptr; // pointer to min node
+    fibheap_c() : nodes(0), minptr(nullptr) {}
 };
+
+// create and destroy heap
+fibheap_c *fh_create();
+void fh_destroy(fibheap_c *H);
+
+// insert vertex with key and return node pointer
+fh_node *fh_insert(fibheap_c *H, int vertex, int key);
+
+// extract min node (caller owns returned pointer and should delete it)
+fh_node *fh_extract_min_node(fibheap_c *H);
+
+// decrease key of a given node
+void fh_decrease_key(fibheap_c *H, fh_node *x, int newKey);
+
+// check empty
+bool fh_empty(const fibheap_c *H);
 
 #endif // FIBHEAP_H

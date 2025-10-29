@@ -4,28 +4,27 @@
 #include <vector>
 #include <utility>
 #include <stdexcept>
+using namespace std; // make standard library names shorter
 
-using namespace std;
-
-// simple structure to store an undirected edge
+// structure for an edge (u,v) with weight w
 struct Edge
 {
     int u, v;
-    long long w;
-    Edge(int a = 0, int b = 0, long long c = 0) : u(a), v(b), w(c) {}
+    int w;
+    Edge(int a = 0, int b = 0, int c = 0) : u(a), v(b), w(c) {}
 };
 
-// basic weighted undirected graph
+// graph class for adjacency list + edge list
 class Graph
 {
 public:
-    int n;                                    // number of vertices
-    vector<vector<pair<int, long long>>> adj; // adjacency list
-    vector<Edge> edges;                       // list of all edges (u < v)
+    int n;
+    vector<vector<pair<int, int>>> adj;
+    vector<Edge> edges;
 
     Graph(int nodes = 0);
-    void add_edge(int a, int b, long long w);
-    static Graph from_cost_matrix(const vector<vector<long long>> &mat);
+    void add_edge(int a, int b, int w);                            // add undirected edge
+    static Graph from_cost_matrix(const vector<vector<int>> &mat); // build from cost matrix
 };
 
-#endif
+#endif // GRAPH_H
