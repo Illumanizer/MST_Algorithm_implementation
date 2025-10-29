@@ -4,8 +4,12 @@ using namespace std;
 // ensure u <= v for consistency
 static void normalize_edge(Edge &e)
 {
-    if (e.u > e.v)
-        swap(e.u, e.v);
+    
+    if (e.u > e.v) {
+        int t = e.u;
+        e.u = e.v;
+        e.v = t;
+    }
 }
 
 // insertion sort based on (w,u,v)
