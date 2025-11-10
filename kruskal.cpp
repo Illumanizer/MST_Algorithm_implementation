@@ -1,17 +1,6 @@
 #include "kruskal.h"
 using namespace std;
 
-// ensure u <= v for consistency
-static void normalize_edge(Edge &e)
-{
-    
-    if (e.u > e.v) {
-        int t = e.u;
-        e.u = e.v;
-        e.v = t;
-    }
-}
-
 // insertion sort based on (w,u,v)
 static void sort_edges(vector<Edge> &arr)
 {
@@ -40,8 +29,6 @@ static void sort_edges(vector<Edge> &arr)
 pair<vector<Edge>, int> kruskal_mst(const Graph &G)
 {
     vector<Edge> sorted = G.edges;
-    for (int i = 0; i < sorted.size(); ++i)
-        normalize_edge(sorted[i]);
     sort_edges(sorted);
 
     UnionFind uf(G.n);
