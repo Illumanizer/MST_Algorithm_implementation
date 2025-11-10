@@ -1,4 +1,3 @@
-// ===== File: prim.cpp =====
 #include "prim.h"
 #include "fibheap.h"
 #include <climits>
@@ -53,7 +52,7 @@ pair<vector<Edge>, int> prim_mst(const Graph &G)
         }
 
         // relax neighbors
-        for (size_t i = 0; i < G.adj[u].size(); ++i)
+        for (int i = 0; i < G.adj[u].size(); ++i)
         {
             int v = G.adj[u][i].first;
             int w = G.adj[u][i].second;
@@ -64,13 +63,8 @@ pair<vector<Edge>, int> prim_mst(const Graph &G)
                 key[v] = w;
                 parent[v] = u;
                 if (nodeOf[v])
-                {
                     fh_decrease_key(H, nodeOf[v], w);
-                }
-                else
-                {
-                    // node was removed earlier or not present, skip
-                }
+                
             }
         }
     }
@@ -80,3 +74,11 @@ pair<vector<Edge>, int> prim_mst(const Graph &G)
 
     return {mst, total};
 }
+
+
+// n insert * O(1) - O(n)
+// m decrease_key * O(1) - O(m)
+// n extract_min * O(log n) - O(n log n)
+
+// overall amortized: O(m + n log n)
+
