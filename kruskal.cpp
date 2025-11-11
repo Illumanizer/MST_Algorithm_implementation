@@ -28,14 +28,20 @@ static void sort_edges(vector<Edge> &arr)
 
 pair<vector<Edge>, int> kruskal_mst(const Graph &G)
 {
-    vector<Edge> sorted = G.edges;
-    sort_edges(sorted);
+    vector<Edge> sorted = G.edges; // O(E) for copy
+    sort_edges(sorted);            // O(E^2)
 
-    UnionFind uf(G.n);
+    //     std::sort(sorted.begin(), sorted.end(), [](const Edge &a, const Edge &b){  // O(ElogE)
+    //     if (a.w != b.w) return a.w < b.w;
+    //     if (a.u != b.u) return a.u < b.u;
+    //     return a.v < b.v;
+    // });
+
+    UnionFind uf(G.n); // O(n)
     vector<Edge> mst;
     int total = 0;
 
-    for (int i = 0; i < sorted.size(); ++i)
+    for (int i = 0; i < sorted.size(); ++i) // O(E. alpha(n))
     {
         Edge &e = sorted[i];
         if (!uf.same(e.u, e.v))
@@ -49,3 +55,5 @@ pair<vector<Edge>, int> kruskal_mst(const Graph &G)
     }
     return {mst, total};
 }
+
+// O(E^2) + O(E. alpha(n)) + O(n) = O(E^2)
